@@ -31,6 +31,8 @@ pub type KeychainChangeSet<A> = (
 );
 pub type Database<'m, C> = Persist<Store<'m, C>, C>;
 
+const DEFAULT_LOOKAHEAD: u32 = 1_000;
+
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 #[clap(propagate_version = true)]
@@ -669,7 +671,7 @@ where
 
     let (descriptor, mut keymap) =
         Descriptor::<DescriptorPublicKey>::parse_descriptor(&secp, &args.descriptor)?;
-    index.add_keychain(Keychain::External, descriptor);
+    index.add_keychain(Keychain::External, descriptor, DEFAULT_LOOKAHEAD);
 
     if let Some((internal_descriptor, internal_keymap)) = args
         .change_descriptor
@@ -678,7 +680,7 @@ where
         .transpose()?
     {
         keymap.extend(internal_keymap);
-        index.add_keychain(Keychain::Internal, internal_descriptor);
+        index.add_keychain(Keychain::Internal, internal_descriptor, DEFAULT_LOOKAHEAD);
     }
 
     let mut db_backend = match Store::<'m, C>::open_or_create_new(db_magic, &args.db_path) {

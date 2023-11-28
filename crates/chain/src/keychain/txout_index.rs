@@ -47,9 +47,9 @@ use crate::Append;
 /// # let (external_descriptor,_) = Descriptor::<DescriptorPublicKey>::parse_descriptor(&secp, "tr([73c5da0a/86'/0'/0']xprv9xgqHN7yz9MwCkxsBPN5qetuNdQSUttZNKw1dcYTV4mkaAFiBVGQziHs3NRSWMkCzvgjEe3n9xV8oYywvM8at9yRqyaZVz6TYYhX98VjsUk/0/*)").unwrap();
 /// # let (internal_descriptor,_) = Descriptor::<DescriptorPublicKey>::parse_descriptor(&secp, "tr([73c5da0a/86'/0'/0']xprv9xgqHN7yz9MwCkxsBPN5qetuNdQSUttZNKw1dcYTV4mkaAFiBVGQziHs3NRSWMkCzvgjEe3n9xV8oYywvM8at9yRqyaZVz6TYYhX98VjsUk/1/*)").unwrap();
 /// # let descriptor_for_user_42 = external_descriptor.clone();
-/// txout_index.add_keychain(MyKeychain::External, external_descriptor);
-/// txout_index.add_keychain(MyKeychain::Internal, internal_descriptor);
-/// txout_index.add_keychain(MyKeychain::MyAppUser { user_id: 42 }, descriptor_for_user_42);
+/// txout_index.add_keychain(MyKeychain::External, external_descriptor, 0);
+/// txout_index.add_keychain(MyKeychain::Internal, internal_descriptor, 0);
+/// txout_index.add_keychain(MyKeychain::MyAppUser { user_id: 42 }, descriptor_for_user_42, 0);
 ///
 /// let new_spk_for_user = txout_index.reveal_next_spk(&MyKeychain::MyAppUser{ user_id: 42 });
 /// ```
@@ -142,15 +142,22 @@ impl<K: Clone + Ord + Debug> KeychainTxOutIndex<K> {
     /// # Panics
     ///
     /// This will panic if a different `descriptor` is introduced to the same `keychain`.
-    pub fn add_keychain(&mut self, keychain: K, descriptor: Descriptor<DescriptorPublicKey>) {
+    pub fn add_keychain(
+        &mut self,
+        keychain: K,
+        descriptor: Descriptor<DescriptorPublicKey>,
+        lookahead: u32,
+    ) {
         let old_descriptor = &*self
             .keychains
-            .entry(keychain)
+            .entry(keychain.clone())
             .or_insert_with(|| descriptor.clone());
         assert_eq!(
             &descriptor, old_descriptor,
             "keychain already contains a different descriptor"
         );
+        self.lookahead.insert(keychain.clone(), lookahead);
+        self.replenish_lookahead(&keychain);
     }
 
     /// Return the lookahead setting for each keychain.
@@ -390,10 +397,7 @@ impl<K: Clone + Ord + Debug> KeychainTxOutIndex<K> {
         let next_reveal_index = self.last_revealed.get(keychain).map_or(0, |v| *v + 1);
         let lookahead = self.lookahead.get(keychain).map_or(0, |v| *v);
 
-        debug_assert_eq!(
-            next_reveal_index + lookahead,
-            self.next_store_index(keychain)
-        );
+        debug_assert!(next_reveal_index + lookahead >= self.next_store_index(keychain));
 
         // if we need to reveal new indices, the latest revealed index goes here
         let mut reveal_to_index = None;

@@ -75,6 +75,8 @@ use crate::wallet::error::{BuildFeeBumpError, CreateTxError, MiniscriptPsbtError
 
 const COINBASE_MATURITY: u32 = 100;
 
+const DEFAULT_LOOKAHEAD: u32 = 1_000;
+
 /// A Bitcoin wallet
 ///
 /// The `Wallet` struct acts as a way of coherently interfacing with output descriptors and related transactions.
@@ -2375,13 +2377,13 @@ fn create_signers<E: IntoWalletDescriptor>(
 ) -> Result<(Arc<SignersContainer>, Arc<SignersContainer>), crate::descriptor::error::Error> {
     let (descriptor, keymap) = into_wallet_descriptor_checked(descriptor, secp, network)?;
     let signers = Arc::new(SignersContainer::build(keymap, &descriptor, secp));
-    index.add_keychain(KeychainKind::External, descriptor);
+    index.add_keychain(KeychainKind::External, descriptor, DEFAULT_LOOKAHEAD);
 
     let change_signers = match change_descriptor {
         Some(descriptor) => {
             let (descriptor, keymap) = into_wallet_descriptor_checked(descriptor, secp, network)?;
             let signers = Arc::new(SignersContainer::build(keymap, &descriptor, secp));
-            index.add_keychain(KeychainKind::Internal, descriptor);
+            index.add_keychain(KeychainKind::Internal, descriptor, DEFAULT_LOOKAHEAD);
             signers
         }
         None => Arc::new(SignersContainer::new()),
