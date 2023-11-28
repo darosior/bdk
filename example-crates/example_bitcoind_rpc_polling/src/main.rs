@@ -162,11 +162,8 @@ fn main() -> anyhow::Result<()> {
         RpcCommands::Sync { rpc_args } => {
             let RpcArgs {
                 fallback_height,
-                lookahead,
                 ..
             } = rpc_args;
-
-            graph.lock().unwrap().index.set_lookahead_for_all(lookahead);
 
             let chain_tip = chain.lock().unwrap().tip();
             let rpc_client = rpc_args.new_client()?;
@@ -234,12 +231,10 @@ fn main() -> anyhow::Result<()> {
         RpcCommands::Live { rpc_args } => {
             let RpcArgs {
                 fallback_height,
-                lookahead,
                 ..
             } = rpc_args;
             let sigterm_flag = start_ctrlc_handler();
 
-            graph.lock().unwrap().index.set_lookahead_for_all(lookahead);
             let last_cp = chain.lock().unwrap().tip();
 
             println!(

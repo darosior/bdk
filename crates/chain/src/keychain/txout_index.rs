@@ -5,7 +5,6 @@ use crate::{
     spk_iter::BIP32_MAX_INDEX,
     SpkIterator, SpkTxOutIndex,
 };
-use alloc::vec::Vec;
 use bitcoin::{OutPoint, Script, TxOut};
 use core::{fmt::Debug, ops::Deref};
 
@@ -139,6 +138,11 @@ impl<K: Clone + Ord + Debug> KeychainTxOutIndex<K> {
     /// Adding a keychain means you will be able to derive new script pubkeys under that keychain
     /// and the txout index will discover transaction outputs with those script pubkeys.
     ///
+    /// The `lookahead` is the number of scripts to cache ahead of the last revealed script index. This
+    /// is useful to find outputs you own when processing block data that lie beyond the last revealed
+    /// index. In certain situations, such as when performing an initial scan of the blockchain during
+    /// wallet import, it may be uncertain or unknown what the last revealed index is.
+    ///
     /// # Panics
     ///
     /// This will panic if a different `descriptor` is introduced to the same `keychain`.
@@ -162,61 +166,11 @@ impl<K: Clone + Ord + Debug> KeychainTxOutIndex<K> {
 
     /// Return the lookahead setting for each keychain.
     ///
-    /// Refer to [`set_lookahead`] for a deeper explanation of the `lookahead`.
+    /// Refer to [`add_keychain`] for a deeper explanation of the `lookahead`.
     ///
-    /// [`set_lookahead`]: Self::set_lookahead
+    /// [`add_keychain`]: Self::add_keychain
     pub fn lookaheads(&self) -> &BTreeMap<K, u32> {
         &self.lookahead
-    }
-
-    /// Convenience method to call [`set_lookahead`] for all keychains.
-    ///
-    /// [`set_lookahead`]: Self::set_lookahead
-    pub fn set_lookahead_for_all(&mut self, lookahead: u32) {
-        for keychain in &self.keychains.keys().cloned().collect::<Vec<_>>() {
-            self.set_lookahead(keychain, lookahead);
-        }
-    }
-
-    /// Set the lookahead count for `keychain`.
-    ///
-    /// The lookahead is the number of scripts to cache ahead of the last revealed script index. This
-    /// is useful to find outputs you own when processing block data that lie beyond the last revealed
-    /// index. In certain situations, such as when performing an initial scan of the blockchain during
-    /// wallet import, it may be uncertain or unknown what the last revealed index is.
-    ///
-    /// # Panics
-    ///
-    /// This will panic if the `keychain` does not exist.
-    pub fn set_lookahead(&mut self, keychain: &K, lookahead: u32) {
-        self.lookahead.insert(keychain.clone(), lookahead);
-        self.replenish_lookahead(keychain);
-    }
-
-    /// Convenience method to call [`lookahead_to_target`] for multiple keychains.
-    ///
-    /// [`lookahead_to_target`]: Self::lookahead_to_target
-    pub fn lookahead_to_target_multi(&mut self, target_indexes: BTreeMap<K, u32>) {
-        for (keychain, target_index) in target_indexes {
-            self.lookahead_to_target(&keychain, target_index)
-        }
-    }
-
-    /// Store lookahead scripts until `target_index`.
-    ///
-    /// This does not change the `lookahead` setting.
-    pub fn lookahead_to_target(&mut self, keychain: &K, target_index: u32) {
-        let next_index = self.next_store_index(keychain);
-        if let Some(temp_lookahead) = target_index.checked_sub(next_index).filter(|&v| v > 0) {
-            let old_lookahead = self.lookahead.insert(keychain.clone(), temp_lookahead);
-            self.replenish_lookahead(keychain);
-
-            // revert
-            match old_lookahead {
-                Some(lookahead) => self.lookahead.insert(keychain.clone(), lookahead),
-                None => self.lookahead.remove(keychain),
-            };
-        }
     }
 
     fn replenish_lookahead(&mut self, keychain: &K) {
