@@ -11,13 +11,23 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 rusqlite = "0.31.0"
 
+[dependencies.bdk_chain]
+path = "../crates/chain"
+
 [dependencies.bdk_wallet]
-path = ".."
+path = "../crates/wallet"
 features = ["rusqlite"]
 
 [[bin]]
 name = "bdkwallet"
 path = "fuzz_targets/bdkwallet.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "merge_chain"
+path = "fuzz_targets/merge_chain.rs"
 test = false
 doc = false
 bench = false

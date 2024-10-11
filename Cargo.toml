@@ -19,6 +19,7 @@ members = [
     "example-crates/wallet_esplora_async",
     "example-crates/wallet_rpc",
 ]
+exclude = ["fuzz"]
 
 [workspace.package]
 authors = ["Bitcoin Dev Kit Developers"]
